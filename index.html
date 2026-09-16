@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ahmed &amp; Mahmooda</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body class="hero-page">
+
+<a href="admin.html" class="admin-link" title="Admin panel">Admin</a>
+
+<div class="hero">
+  <div class="hero-image-wrap">
+    <!--
+      Put your photo in this folder and name it exactly "welcome.jpg"
+      (or change the filename below to match yours — .png and .jpg both work).
+      If no image is found, a plain fallback panel shows instead so the
+      page never looks broken.
+    -->
+    <img
+      src="welcome.jpg"
+      alt="Ahmed and Mahmooda"
+      onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'hero-fallback',textContent:'Add your photo as welcome.jpg in this folder'}))"
+    />
+  </div>
+
+  <div class="hero-footer">
+    <h1>Ahmed &amp; Mahmooda</h1>
+    <p>We're getting married — join us</p>
+
+    <div id="countdown" class="countdown" aria-live="polite"></div>
+
+    <div class="rsvp-deadline">Please RSVP by October 31, 2026</div>
+
+    <div class="hero-links">
+      <a href="rsvp.html">RSVP</a>
+      <a href="schedule.html">Schedule</a>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Set this to your wedding date/time. Use 24-hour time and your own
+   local timezone offset (e.g. "-05:00" for Dallas/Central). If you have
+   multiple events, pick the first one, or the one you consider the "big day". */
+var WEDDING_DATE = "2027-06-12T17:00:00-05:00";
+
+(function () {
+  var target = new Date(WEDDING_DATE);
+  var box = document.getElementById("countdown");
+  if (isNaN(target)) { box.style.display = "none"; return; }
+
+  function render() {
+    var diff = target - new Date();
+
+    if (diff <= 0) {
+      box.innerHTML = '<div class="countdown-arrived">We are married! Thank you for celebrating with us.</div>';
+      return;
+    }
+
+    var day = 1000 * 60 * 60 * 24;
+    var days = Math.floor(diff / day);
+    var hours = Math.floor((diff % day) / (1000 * 60 * 60));
+    var mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    var secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+    box.innerHTML =
+      '<div class="countdown-row">' +
+        countdownUnit(days, days === 1 ? "day" : "days") +
+        countdownUnit(hours, hours === 1 ? "hour" : "hours") +
+        countdownUnit(mins, mins === 1 ? "min" : "mins") +
+        countdownUnit(secs, secs === 1 ? "sec" : "secs") +
+      '</div>';
+  }
+
+  function countdownUnit(value, label) {
+    return '<div class="countdown-unit"><span class="countdown-value">' + value +
+      '</span><span class="countdown-label">' + label + '</span></div>';
+  }
+
+  render();
+  setInterval(render, 1000);
+})();
+</script>
+
+</body>
+</html>

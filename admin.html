@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin — Ahmed &amp; Mahmooda</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="index.html">Home</a>
+  <a href="admin.html" aria-current="page">Admin</a>
+</nav>
+
+<main class="page-wrap wide">
+  <div class="page-header">
+    <h1>Admin</h1>
+  </div>
+  <div id="app"></div>
+</main>
+
+<script src="app.js"></script>
+<script>
+let passcode = null;
+let guests = [];
+let events = [];
+let activeTab = "guests";
+const app = document.getElementById("app");
+
+/* ---------------- login ---------------- */
+
+function renderLogin(errorMsg) {
+  app.innerHTML = "";
+  const form = el("form", { class: "card", style: "max-width:360px;margin:0 auto" }, [
+    el("label", { for: "pass" }, ["Admin passcode"]),
+    el("input", { type: "password", id: "pass", required: "required" }),
+    el("div", { class: "btn-row" }, [el("button", { type: "submit", class: "btn" }, ["Enter"])])
+  ]);
+  if (errorMsg) app.appendChild(el("div", { class: "notice notice-error" }, [errorMsg]));
+  app.appendChild(form);
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const val = document.getElementById("pass").value;
+    const btn = form.querySelector("button");
+    btn.disabled = true;
+    btn.textContent = "Checking...";
+    try {
+      const res = await api("adminLogin", { passcode: val });
+      if (!res.ok) { renderLogin("Incorrect passcode."); return; }
+      passcode = val;
+      await loadAll();
+      renderShell();
+    } catch (err) {
+      renderLogin("Couldn't reach the server: " + err.message);
+    }
+  });
+}
+
+async function loadAll() {
+  const res = await api("adminGetAll", { passcode });
+  if (!res.ok) throw new Error(res.error || "Failed to load data.");
+  guests = res.guests;
+  events = res.events;
+}
+
+/* ---------------- shell + tabs ---------------- */
+
+/** If anything in the admin UI fails to render, this is what the person
+    sees instead of a blank screen — and it's never confused with a
+    network problem, since it only fires for rendering bugs. */
+function renderFatalError(err) {
+  console.error(err);
+  app.innerHTML = "";
+  app.appendChild(el("div", { class: "notice notice-error" }, [
+    "Something went wrong displaying this page (" + err.message + "). " +
+    "This is a display bug, not a data problem — anything you already saved is safe. Reloading usually fixes it."
+  ]));
+  const retryBtn = el("button", { type: "button", class: "btn", style: "margin-top:0.9rem" }, ["Reload page"]);
+  retryBtn.addEventListener("click", () => location.reload());
+  app.appendChild(retryBtn);
+}
+
+function renderShell() {
+  try {
+    renderShellInner();
+  } catch (err) {
+    renderFatalError(err);
+  }
+}
+
+function renderShellInner() {
+  app.innerHTML = "";
+  const tabs = el("div", { class: "admin-tabs" }, [
+    tabButton("guests", "Guests"),
+    tabButton("events", "Events")
+  ]);
+  app.appendChild(tabs);
+  const body = el("div", { id: "tabbody" });
+  app.appendChild(body);
+  renderTabBody();
+}
+
+function tabButton(key, label) {
+  const b = el("button", { type: "button" }, [label]);
+  if (activeTab === key) b.className = "active";
+  b.addEventListener("click", () => { activeTab = key; renderShell(); });
+  return b;
+}
+
+function renderTabBody() {
+  const body = document.getElementById("tabbody");
+  body.innerHTML = "";
+  if (activeTab === "guests") body.appendChild(buildGuestsTab());
+  else body.appendChild(buildEventsTab());
+}
+
+/* ---------------- guests tab ---------------- */
+
+// Defensive coercion: no matter what shape a guest record actually has
+// (a stale cache, a hand-edited sheet row, a server hiccup), rendering
+// code always gets a real array / real object to work with.
+function asArray(x) { return Array.isArray(x) ? x : []; }
+function asObj(x) { return (x && typeof x === "object" && !Array.isArray(x)) ? x : {}; }
+
+function eventNameById(id) {
+  const ev = events.filter((e) => e.id === id)[0];
+  return ev ? ev.name : id;
+}
+
+function buildGuestsTab() {
+  const wrap = el("div", {});
+  const scroll = el("div", { class: "table-scroll" });
+  const table = el("table", { class: "admin-table" });
+  const headRow = el("tr", {}, [
+    el("th", {}, ["Name"]),
+    el("th", {}, ["Phone"]),
+    el("th", {}, ["Max party size"]),
+    el("th", {}, ["Invited to"]),
+    el("th", {}, ["RSVP status"]),
+    el("th", {}, ["Actions"])
+  ]);
+  table.appendChild(el("thead", {}, [headRow]));
+  const tbody = el("tbody", {});
+
+  guests.forEach((g) => {
+    const eventIds = asArray(g.eventIds);
+    const rsvps = asObj(g.rsvps);
+
+    const statusCell = el("td", {});
+    eventIds.forEach((eid) => {
+      const r = rsvps[eid];
+      let tagClass = "tag tag-pending", text = eventNameById(eid) + ": pending";
+      if (r && r.attending === true) { tagClass = "tag tag-yes"; text = eventNameById(eid) + ": yes (" + r.headcount + ")"; }
+      else if (r && r.attending === false) { tagClass = "tag tag-no"; text = eventNameById(eid) + ": no"; }
+      statusCell.appendChild(el("span", { class: tagClass }, [text]));
+    });
+
+    const invitedCell = el("td", {}, [eventIds.map(eventNameById).join(", ") || "—"]);
+
+    const actionsCell = el("td", {}, []);
+    const editBtn = el("button", { class: "btn btn-small btn-outline" }, ["Edit"]);
+    const delBtn = el("button", { class: "btn btn-small btn-danger" }, ["Delete"]);
+    editBtn.style.marginRight = "0.4rem";
+    editBtn.addEventListener("click", () => { try { openGuestForm(g); } catch (err) { renderFatalError(err); } });
+    delBtn.addEventListener("click", () => deleteGuest(g));
+    actionsCell.appendChild(editBtn);
+    actionsCell.appendChild(delBtn);
+
+    tbody.appendChild(el("tr", {}, [
+      el("td", {}, [(g.firstName || "") + " " + (g.lastName || "")]),
+      el("td", {}, [g.contact || "—"]),
+      el("td", {}, [String(1 + (g.maxPlusOnes || 0))]),
+      invitedCell,
+      statusCell,
+      actionsCell
+    ]));
+  });
+
+  table.appendChild(tbody);
+  scroll.appendChild(table);
+  wrap.appendChild(scroll);
+
+  const addBtn = el("button", { class: "btn" }, ["+ Add guest"]);
+  addBtn.addEventListener("click", () => { try { openGuestForm(null); } catch (err) { renderFatalError(err); } });
+  wrap.appendChild(addBtn);
+
+  wrap.appendChild(el("div", { id: "guestFormZone", style: "margin-top:1.4rem" }));
+  return wrap;
+}
+
+function openGuestForm(guest) {
+  const zone = document.getElementById("guestFormZone");
+  zone.innerHTML = "";
+
+  const isEdit = !!guest;
+  const g = guest || { firstName: "", lastName: "", contact: "", maxPlusOnes: 0, eventIds: [] };
+  const gEventIds = asArray(g.eventIds);
+
+  const fnInput = el("input", { type: "text", value: g.firstName });
+  const lnInput = el("input", { type: "text", value: g.lastName });
+  const contactInput = el("input", { type: "tel", value: g.contact || "" });
+  const plusInput = el("input", { type: "number", min: "0", value: String(g.maxPlusOnes || 0) });
+
+  const checks = el("div", { class: "checkbox-list" });
+  events.forEach((ev) => {
+    const checked = gEventIds.indexOf(ev.id) !== -1;
+    const id = "ev_chk_" + ev.id;
+    const cb = el("input", { type: "checkbox", id: id, value: ev.id });
+    if (checked) cb.checked = true;
+    checks.appendChild(el("label", { for: id }, [cb, ev.name]));
+  });
+
+  const errBox = el("div", {});
+  const saveBtn = el("button", { type: "button", class: "btn" }, [isEdit ? "Save changes" : "Add guest"]);
+  const cancelBtn = el("button", { type: "button", class: "btn btn-outline" }, ["Cancel"]);
+  cancelBtn.addEventListener("click", () => { zone.innerHTML = ""; });
+
+  saveBtn.addEventListener("click", async () => {
+    const firstName = fnInput.value.trim();
+    const lastName = lnInput.value.trim();
+    if (!firstName || !lastName) { showError(errBox, "First and last name are required."); return; }
+    const selectedEventIds = Array.from(checks.querySelectorAll("input:checked")).map((c) => c.value);
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+    try {
+      const payloadGuest = {
+        id: isEdit ? g.id : undefined,
+        firstName, lastName,
+        contact: contactInput.value.trim(),
+        maxPlusOnes: parseInt(plusInput.value, 10) || 0,
+        eventIds: selectedEventIds
+      };
+      const res = await api("adminSaveGuest", { passcode, guest: payloadGuest });
+      if (!res.ok) { showError(errBox, res.error || "Failed to save."); saveBtn.disabled = false; return; }
+      await loadAll();
+      renderShell();
+    } catch (err) {
+      showError(errBox, "Couldn't reach the server: " + err.message);
+      saveBtn.disabled = false;
+    }
+  });
+
+  zone.appendChild(el("div", { class: "card" }, [
+    el("h3", {}, [isEdit ? "Edit guest" : "Add guest"]),
+    el("div", { class: "field-row" }, [
+      el("div", {}, [el("label", {}, ["First name"]), fnInput]),
+      el("div", {}, [el("label", {}, ["Last name"]), lnInput])
+    ]),
+    el("label", {}, ["Phone number (used to tell apart guests who share a name)"]),
+    contactInput,
+    el("label", {}, ["Additional guests allowed (plus-ones)"]),
+    plusInput,
+    el("label", {}, ["Invited to"]),
+    checks,
+    errBox,
+    el("div", { class: "btn-row" }, [saveBtn, cancelBtn])
+  ]));
+}
+
+async function deleteGuest(g) {
+  if (!confirm("Delete " + g.firstName + " " + g.lastName + "? This cannot be undone.")) return;
+  try {
+    const res = await api("adminDeleteGuest", { passcode, id: g.id });
+    if (!res.ok) { alert(res.error || "Failed to delete."); return; }
+    await loadAll();
+    renderShell();
+  } catch (err) {
+    alert("Couldn't reach the server: " + err.message);
+  }
+}
+
+/* ---------------- events tab ---------------- */
+
+/** Tallies responses for one event across all invited guests.
+ *  pending: guests invited who haven't responded yet
+ *  yesHeadcount: total people attending (the guest plus however many
+ *    plus-ones they brought), summed across every "yes"
+ *  noCount: guests who said they can't make it */
+function computeEventStats(eventId) {
+  let pending = 0, yesHeadcount = 0, noCount = 0;
+  guests.forEach((g) => {
+    const eventIds = asArray(g.eventIds);
+    if (eventIds.indexOf(eventId) === -1) return; // not invited to this event
+    const r = asObj(g.rsvps)[eventId];
+    if (!r || typeof r.attending !== "boolean") { pending++; return; }
+    if (r.attending) yesHeadcount += (r.headcount || 0);
+    else noCount++;
+  });
+  return { pending, yesHeadcount, noCount };
+}
+
+function buildEventsTab() {
+  const wrap = el("div", {});
+  const scroll = el("div", { class: "table-scroll" });
+  const table = el("table", { class: "admin-table" });
+  table.appendChild(el("thead", {}, [el("tr", {}, [
+    el("th", {}, ["Order"]),
+    el("th", {}, ["Event"]),
+    el("th", {}, ["Date"]),
+    el("th", {}, ["Start"]),
+    el("th", {}, ["End"]),
+    el("th", {}, ["Location"]),
+    el("th", {}, ["Map"]),
+    el("th", {}, ["Timeline"]),
+    el("th", {}, ["RSVPs"]),
+    el("th", {}, ["Actions"])
+  ])]));
+  const tbody = el("tbody", {});
+
+  events.forEach((ev) => {
+    const actionsCell = el("td", {});
+    const editBtn = el("button", { class: "btn btn-small btn-outline" }, ["Edit"]);
+    const delBtn = el("button", { class: "btn btn-small btn-danger" }, ["Delete"]);
+    editBtn.style.marginRight = "0.4rem";
+    editBtn.addEventListener("click", () => { try { openEventForm(ev); } catch (err) { renderFatalError(err); } });
+    delBtn.addEventListener("click", () => deleteEvent(ev));
+    actionsCell.appendChild(editBtn);
+    actionsCell.appendChild(delBtn);
+
+    const stats = computeEventStats(ev.id);
+    const statsCell = el("td", {}, [
+      el("span", { class: "tag tag-pending" }, ["Waiting: " + stats.pending]),
+      el("span", { class: "tag tag-yes" }, ["Yes: " + stats.yesHeadcount]),
+      el("span", { class: "tag tag-no" }, ["No: " + stats.noCount])
+    ]);
+
+    const timelineCount = Array.isArray(ev.timeline) ? ev.timeline.length : 0;
+
+    tbody.appendChild(el("tr", {}, [
+      el("td", {}, [String(ev.order)]),
+      el("td", {}, [ev.name]),
+      el("td", {}, [ev.date || "—"]),
+      el("td", {}, [formatTime12h(ev.startTime) || "—"]),
+      el("td", {}, [formatTime12h(ev.endTime) || "—"]),
+      el("td", {}, [ev.location || "—"]),
+      el("td", {}, [ev.address ? "✓" : "—"]),
+      el("td", {}, [timelineCount ? (timelineCount + (timelineCount === 1 ? " item" : " items")) : "—"]),
+      statsCell,
+      actionsCell
+    ]));
+  });
+
+  table.appendChild(tbody);
+  scroll.appendChild(table);
+  wrap.appendChild(scroll);
+
+  const addBtn = el("button", { class: "btn" }, ["+ Add event"]);
+  addBtn.addEventListener("click", () => { try { openEventForm(null); } catch (err) { renderFatalError(err); } });
+  wrap.appendChild(addBtn);
+  wrap.appendChild(el("div", { class: "helptext", style: "margin-top:0.9rem" }, ["\"Order\" controls the sequence guests RSVP in when they're invited to more than one event — lower numbers come first."]));
+  wrap.appendChild(el("div", { id: "eventFormZone", style: "margin-top:1.4rem" }));
+  return wrap;
+}
+
+function openEventForm(ev) {
+  const zone = document.getElementById("eventFormZone");
+  zone.innerHTML = "";
+  const isEdit = !!ev;
+  const e = ev || { name: "", date: "", startTime: "", endTime: "", location: "", address: "", details: "", order: events.length + 1, timeline: [] };
+
+  const nameInput = el("input", { type: "text", value: e.name });
+  const dateInput = el("input", { type: "date", value: e.date || "" });
+  const startTimeInput = el("input", { type: "time", value: e.startTime || "" });
+  const endTimeInput = el("input", { type: "time", value: e.endTime || "" });
+  const locInput = el("input", { type: "text", value: e.location || "" });
+  const addressInput = el("input", { type: "text", value: e.address || "", placeholder: "e.g. 123 Main St, Dallas, TX 75201" });
+  const detailsInput = el("textarea", { rows: "2" }, [e.details || ""]);
+  const orderInput = el("input", { type: "number", value: String(e.order) });
+
+  // Timeline editor: a working local copy of items, re-rendered on every
+  // add/remove so row indices always stay correct.
+  let timelineItems = (Array.isArray(e.timeline) ? e.timeline : []).map((item) => ({ time: item.time || "", label: item.label || "" }));
+  const timelineRows = el("div", { class: "timeline-editor" });
+
+  function renderTimelineRows() {
+    timelineRows.innerHTML = "";
+    timelineItems.forEach((item, idx) => {
+      const timeInput = el("input", { type: "time", value: item.time });
+      const labelInput = el("input", { type: "text", value: item.label, placeholder: "e.g. Guests arrive" });
+      const removeBtn = el("button", { type: "button", class: "btn btn-small btn-outline" }, ["Remove"]);
+      timeInput.addEventListener("input", () => { timelineItems[idx].time = timeInput.value; });
+      labelInput.addEventListener("input", () => { timelineItems[idx].label = labelInput.value; });
+      removeBtn.addEventListener("click", () => { timelineItems.splice(idx, 1); renderTimelineRows(); });
+      timelineRows.appendChild(el("div", { class: "timeline-row-edit" }, [timeInput, labelInput, removeBtn]));
+    });
+  }
+  renderTimelineRows();
+
+  const addTimelineBtn = el("button", { type: "button", class: "btn btn-small btn-outline" }, ["+ Add timeline item"]);
+  addTimelineBtn.addEventListener("click", () => { timelineItems.push({ time: "", label: "" }); renderTimelineRows(); });
+
+  const errBox = el("div", {});
+  const saveBtn = el("button", { type: "button", class: "btn" }, [isEdit ? "Save changes" : "Add event"]);
+  const cancelBtn = el("button", { type: "button", class: "btn btn-outline" }, ["Cancel"]);
+  cancelBtn.addEventListener("click", () => { zone.innerHTML = ""; });
+
+  saveBtn.addEventListener("click", async () => {
+    const name = nameInput.value.trim();
+    if (!name) { showError(errBox, "Event name is required."); return; }
+    const startTime = startTimeInput.value;
+    const endTime = endTimeInput.value;
+    if (startTime && endTime && endTime <= startTime) {
+      showError(errBox, "End time should be after start time.");
+      return;
+    }
+    // Drop blank rows, keep the rest in time order.
+    const cleanTimeline = timelineItems
+      .filter((item) => item.time || item.label)
+      .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+    try {
+      const payloadEvent = {
+        id: isEdit ? e.id : undefined,
+        name,
+        date: dateInput.value,
+        startTime,
+        endTime,
+        location: locInput.value.trim(),
+        address: addressInput.value.trim(),
+        details: detailsInput.value.trim(),
+        order: parseInt(orderInput.value, 10) || 0,
+        timeline: cleanTimeline
+      };
+      const res = await api("adminSaveEvent", { passcode, event: payloadEvent });
+      if (!res.ok) { showError(errBox, res.error || "Failed to save."); saveBtn.disabled = false; return; }
+      await loadAll();
+      renderShell();
+    } catch (err) {
+      showError(errBox, "Couldn't reach the server: " + err.message);
+      saveBtn.disabled = false;
+    }
+  });
+
+  zone.appendChild(el("div", { class: "card" }, [
+    el("h3", {}, [isEdit ? "Edit event" : "Add event"]),
+    el("label", {}, ["Event name"]), nameInput,
+    el("label", {}, ["Date"]), dateInput,
+    el("div", { class: "field-row" }, [
+      el("div", {}, [el("label", {}, ["Start time"]), startTimeInput]),
+      el("div", {}, [el("label", {}, ["End time (optional)"]), endTimeInput])
+    ]),
+    el("label", {}, ["Location name"]), locInput,
+    el("label", {}, ["Venue address (optional — shows a map to guests invited to this event)"]), addressInput,
+    el("label", {}, ["Details (optional)"]), detailsInput,
+    el("label", {}, ["Order"]), orderInput,
+    el("label", {}, ["Timeline (optional — shown to guests invited to this event)"]),
+    timelineRows,
+    el("div", { class: "btn-row", style: "margin-bottom:1rem" }, [addTimelineBtn]),
+    errBox,
+    el("div", { class: "btn-row" }, [saveBtn, cancelBtn])
+  ]));
+}
+
+async function deleteEvent(ev) {
+  if (!confirm("Delete \"" + ev.name + "\"? This will also remove it from any guests it was assigned to.")) return;
+  try {
+    const res = await api("adminDeleteEvent", { passcode, id: ev.id });
+    if (!res.ok) { alert(res.error || "Failed to delete."); return; }
+    await loadAll();
+    renderShell();
+  } catch (err) {
+    alert("Couldn't reach the server: " + err.message);
+  }
+}
+
+renderLogin();
+</script>
+</body>
+</html>

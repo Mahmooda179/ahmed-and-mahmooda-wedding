@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RSVP — Ahmed &amp; Mahmooda</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="index.html">Home</a>
+  <a href="rsvp.html" aria-current="page">RSVP</a>
+  <a href="schedule.html">Schedule</a>
+</nav>
+
+<div class="deadline-banner">Please RSVP by October 31, 2026</div>
+
+<main class="page-wrap narrow">
+  <div class="page-header">
+    <h1>RSVP</h1>
+  </div>
+
+  <div id="app"></div>
+</main>
+
+<footer class="site-footer">With love, Ahmed &amp; Mahmooda</footer>
+
+<script src="app.js"></script>
+<script>
+/* ---------------- state ---------------- */
+let guest = null;          // { id, firstName, lastName, maxPlusOnes, events[], rsvps{} }
+let pendingName = null;    // { firstName, lastName } while confirming identity
+let eventIndex = 0;        // which event in the wizard we're on
+let draft = {};            // in-progress answers keyed by eventId
+
+const app = document.getElementById("app");
+
+/* ---------------- step: name entry ---------------- */
+
+function renderNameForm(errorMsg) {
+  app.innerHTML = "";
+  const form = el("form", { class: "card" }, [
+    el("label", { for: "fn" }, ["First name"]),
+    el("input", { type: "text", id: "fn", autocomplete: "given-name", required: "required" }),
+    el("label", { for: "ln" }, ["Last name"]),
+    el("input", { type: "text", id: "ln", autocomplete: "family-name", required: "required" }),
+    el("div", { class: "btn-row" }, [
+      el("button", { type: "submit", class: "btn" }, ["Find my invitation"])
+    ])
+  ]);
+  app.appendChild(form);
+  if (errorMsg) app.insertBefore(el("div", { class: "notice notice-error" }, [errorMsg]), form);
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const firstName = document.getElementById("fn").value.trim();
+    const lastName = document.getElementById("ln").value.trim();
+    if (!firstName || !lastName) return;
+    const btn = form.querySelector("button");
+    btn.disabled = true;
+    btn.textContent = "Looking...";
+    try {
+      const res = await api("lookupGuest", { firstName, lastName });
+      if (!res.ok) {
+        renderNameForm(res.error);
+        return;
+      }
+      if (res.needsConfirmation) {
+        pendingName = { firstName, lastName };
+        renderConfirmForm();
+      } else {
+        guest = res.guest;
+        eventIndex = 0;
+        renderWizard();
+      }
+    } catch (err) {
+      renderNameForm("Something went wrong reaching the server. " + err.message);
+    }
+  });
+}
+
+/* ---------------- step: disambiguation ---------------- */
+
+function renderConfirmForm(errorMsg) {
+  app.innerHTML = "";
+  const info = el("div", { class: "notice notice-info" }, [
+    "A few guests share this name. To make sure you only RSVP for yourself, please confirm the phone number you gave us."
+  ]);
+  const form = el("form", { class: "card" }, [
+    el("label", { for: "contact" }, ["Phone number"]),
+    el("input", { type: "tel", id: "contact", autocomplete: "tel", required: "required" }),
+    el("div", { class: "btn-row" }, [
+      el("button", { type: "submit", class: "btn" }, ["Confirm"]),
+      el("button", { type: "button", class: "btn btn-outline", id: "back" }, ["Back"])
+    ])
+  ]);
+  if (errorMsg) app.appendChild(el("div", { class: "notice notice-error" }, [errorMsg]));
+  app.appendChild(info);
+  app.appendChild(form);
+
+  document.getElementById("back").addEventListener("click", () => renderNameForm());
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const contact = document.getElementById("contact").value.trim();
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    btn.textContent = "Checking...";
+    try {
+      const res = await api("verifyGuest", {
+        firstName: pendingName.firstName,
+        lastName: pendingName.lastName,
+        contact
+      });
+      if (!res.ok) {
+        renderConfirmForm(res.error);
+        return;
+      }
+      guest = res.guest;
+      eventIndex = 0;
+      renderWizard();
+    } catch (err) {
+      renderConfirmForm("Something went wrong reaching the server. " + err.message);
+    }
+  });
+}
+
+/* ---------------- session bar (shown while identified) ---------------- */
+
+function logout() {
+  guest = null;
+  pendingName = null;
+  eventIndex = 0;
+  draft = {};
+  renderNameForm();
+}
+
+function renderSessionBar() {
+  const bar = el("div", { class: "session-bar" }, [
+    el("span", {}, ["Logged in as " + guest.firstName + " " + guest.lastName]),
+    el("button", { type: "button", class: "session-bar-logout" }, ["Log out"])
+  ]);
+  bar.querySelector("button").addEventListener("click", logout);
+  return bar;
+}
+
+/* ---------------- step: event-by-event wizard ---------------- */
+
+function renderProgress() {
+  const wrap = el("div", { class: "progress" });
+  guest.events.forEach((_, i) => {
+    let cls = "progress-dot";
+    if (i < eventIndex) cls += " done";
+    if (i === eventIndex) cls += " current";
+    wrap.appendChild(el("span", { class: cls }));
+  });
+  return wrap;
+}
+
+function renderWizard() {
+  app.innerHTML = "";
+  app.appendChild(renderSessionBar());
+
+  if (!guest.events || guest.events.length === 0) {
+    app.appendChild(el("div", { class: "notice notice-info" }, [
+      "We have your invitation, but no events are listed for you yet. Please check back soon or contact us directly."
+    ]));
+    return;
+  }
+
+  if (eventIndex >= guest.events.length) {
+    renderThankYou();
+    return;
+  }
+
+  const ev = guest.events[eventIndex];
+  const existing = (guest.rsvps && guest.rsvps[ev.id]) || draft[ev.id] || { attending: null, headcount: 1 };
+  const maxAllowed = 1 + (guest.maxPlusOnes || 0);
+
+  if (guest.events.length > 1) app.appendChild(renderProgress());
+
+  const card = el("div", { class: "card event-card" }, [
+    el("h3", {}, [ev.name]),
+    el("div", { class: "event-when" }, [formatEventWhen(ev)]),
+    ev.location ? el("div", { class: "event-where" }, ["📍 " + ev.location]) : null,
+    ev.details ? el("div", { class: "event-details" }, [ev.details]) : null,
+    renderTimeline(ev),
+    renderMap(ev)
+  ]);
+
+  const toggleWrap = el("div", { class: "attend-toggle" });
+  const yesBtn = el("button", { type: "button" }, ["Joyfully attending"]);
+  const noBtn = el("button", { type: "button" }, ["Can't make it"]);
+  toggleWrap.appendChild(yesBtn);
+  toggleWrap.appendChild(noBtn);
+  card.appendChild(toggleWrap);
+
+  const countWrap = el("div", {});
+  card.appendChild(countWrap);
+
+  let attending = existing.attending;
+  let headcount = existing.headcount || 1;
+
+  function paintToggle() {
+    yesBtn.className = attending === true ? "active-yes" : "";
+    noBtn.className = attending === false ? "active-no" : "";
+    countWrap.innerHTML = "";
+    if (attending === true && maxAllowed > 1) {
+      countWrap.appendChild(el("label", { for: "count" }, ["Total number of people attending, including you"]));
+      const input = el("input", { type: "number", id: "count", min: "1", max: String(maxAllowed), value: String(Math.min(headcount, maxAllowed)) });
+      countWrap.appendChild(input);
+      countWrap.appendChild(el("div", { class: "helptext" }, ["You're invited with up to " + maxAllowed + " total (including yourself)."]));
+      input.addEventListener("input", () => {
+        const v = parseInt(input.value, 10);
+        headcount = isNaN(v) ? 0 : v;
+      });
+    }
+  }
+
+  yesBtn.addEventListener("click", () => { attending = true; if (!headcount) headcount = 1; paintToggle(); });
+  noBtn.addEventListener("click", () => { attending = false; paintToggle(); });
+  paintToggle();
+
+  const continueBtn = el("button", { type: "button", class: "btn" }, [
+    eventIndex === guest.events.length - 1 ? "Submit RSVP" : "Continue to next event"
+  ]);
+  const errBox = el("div", {});
+  card.appendChild(errBox);
+  card.appendChild(el("div", { class: "btn-row" }, [continueBtn]));
+
+  continueBtn.addEventListener("click", async () => {
+    if (attending === null) {
+      showError(errBox, "Please let us know whether you can attend.");
+      return;
+    }
+    if (attending === true && headcount > maxAllowed) {
+      showError(errBox, "You're invited with up to " + maxAllowed + (maxAllowed === 1 ? " person" : " people") +
+        " total (including yourself), but you entered " + headcount + ". Please lower the number before submitting.");
+      return;
+    }
+    if (attending === true && headcount < 1) {
+      showError(errBox, "Please enter at least 1 for the number attending.");
+      return;
+    }
+    continueBtn.disabled = true;
+    continueBtn.textContent = "Saving...";
+    try {
+      const res = await api("submitRsvp", {
+        id: guest.id,
+        eventId: ev.id,
+        attending: attending,
+        headcount: attending ? headcount : 0
+      });
+      if (!res.ok) {
+        showError(errBox, res.error || "Something went wrong.");
+        continueBtn.disabled = false;
+        continueBtn.textContent = "Continue";
+        return;
+      }
+      guest.rsvps[ev.id] = res.saved;
+      draft[ev.id] = res.saved;
+      eventIndex += 1;
+      renderWizard();
+    } catch (err) {
+      showError(errBox, "Couldn't reach the server: " + err.message);
+      continueBtn.disabled = false;
+    }
+  });
+
+  app.appendChild(card);
+}
+
+/* ---------------- step: thank you ---------------- */
+
+function renderThankYou() {
+  app.innerHTML = "";
+  app.appendChild(renderSessionBar());
+  const summary = el("div", { class: "card" });
+  guest.events.forEach((ev) => {
+    const r = guest.rsvps[ev.id];
+    const line = el("div", { style: "margin-bottom:0.6rem" }, [
+      el("strong", {}, [ev.name + ": "]),
+      r && r.attending ? ("Attending (" + r.headcount + (r.headcount === 1 ? " guest" : " guests") + ")") : "Not attending"
+    ]);
+    summary.appendChild(line);
+  });
+
+  app.appendChild(el("div", { class: "thankyou" }, [
+    el("h1", {}, ["Thank you!"]),
+    el("p", {}, ["Your RSVP has been recorded. Here's what we have on file:"])
+  ]));
+  app.appendChild(summary);
+  app.appendChild(el("div", { class: "btn-row", style: "justify-content:center" }, [
+    el("a", { href: "schedule.html", class: "btn btn-outline" }, ["View schedule"]),
+    el("a", { href: "index.html", class: "btn" }, ["Back home"])
+  ]));
+}
+
+/* ---------------- boot ---------------- */
+
+renderNameForm();
+</script>
+</body>
+</html>

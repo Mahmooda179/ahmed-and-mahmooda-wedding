@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule — Ahmed &amp; Mahmooda</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="index.html">Home</a>
+  <a href="rsvp.html">RSVP</a>
+  <a href="schedule.html" aria-current="page">Schedule</a>
+</nav>
+
+<main class="page-wrap narrow">
+  <div class="page-header">
+    <h1>Schedule</h1>
+  </div>
+  <div id="app"></div>
+</main>
+
+<footer class="site-footer">With love, Ahmed &amp; Mahmooda</footer>
+
+<script src="app.js"></script>
+<script>
+let guest = null;
+let pendingName = null;
+const app = document.getElementById("app");
+
+function renderNameForm(errorMsg) {
+  app.innerHTML = "";
+  const form = el("form", { class: "card" }, [
+    el("label", { for: "fn" }, ["First name"]),
+    el("input", { type: "text", id: "fn", autocomplete: "given-name", required: "required" }),
+    el("label", { for: "ln" }, ["Last name"]),
+    el("input", { type: "text", id: "ln", autocomplete: "family-name", required: "required" }),
+    el("div", { class: "btn-row" }, [
+      el("button", { type: "submit", class: "btn" }, ["Show my schedule"])
+    ])
+  ]);
+  if (errorMsg) app.appendChild(el("div", { class: "notice notice-error" }, [errorMsg]));
+  app.appendChild(form);
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const firstName = document.getElementById("fn").value.trim();
+    const lastName = document.getElementById("ln").value.trim();
+    if (!firstName || !lastName) return;
+    const btn = form.querySelector("button");
+    btn.disabled = true;
+    btn.textContent = "Looking...";
+    try {
+      const res = await api("lookupGuest", { firstName, lastName });
+      if (!res.ok) { renderNameForm(res.error); return; }
+      if (res.needsConfirmation) {
+        pendingName = { firstName, lastName };
+        renderConfirmForm();
+      } else {
+        guest = res.guest;
+        renderSchedule();
+      }
+    } catch (err) {
+      renderNameForm("Something went wrong reaching the server. " + err.message);
+    }
+  });
+}
+
+function renderConfirmForm(errorMsg) {
+  app.innerHTML = "";
+  const info = el("div", { class: "notice notice-info" }, [
+    "A few guests share this name. Please confirm the phone number you gave us so we show the right schedule."
+  ]);
+  const form = el("form", { class: "card" }, [
+    el("label", { for: "contact" }, ["Phone number"]),
+    el("input", { type: "tel", id: "contact", autocomplete: "tel", required: "required" }),
+    el("div", { class: "btn-row" }, [
+      el("button", { type: "submit", class: "btn" }, ["Confirm"]),
+      el("button", { type: "button", class: "btn btn-outline", id: "back" }, ["Back"])
+    ])
+  ]);
+  if (errorMsg) app.appendChild(el("div", { class: "notice notice-error" }, [errorMsg]));
+  app.appendChild(info);
+  app.appendChild(form);
+
+  document.getElementById("back").addEventListener("click", () => renderNameForm());
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const contact = document.getElementById("contact").value.trim();
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    btn.textContent = "Checking...";
+    try {
+      const res = await api("verifyGuest", { firstName: pendingName.firstName, lastName: pendingName.lastName, contact });
+      if (!res.ok) { renderConfirmForm(res.error); return; }
+      guest = res.guest;
+      renderSchedule();
+    } catch (err) {
+      renderConfirmForm("Something went wrong reaching the server. " + err.message);
+    }
+  });
+}
+
+function logout() {
+  guest = null;
+  pendingName = null;
+  renderNameForm();
+}
+
+function renderSessionBar() {
+  const bar = el("div", { class: "session-bar" }, [
+    el("span", {}, ["Logged in as " + guest.firstName + " " + guest.lastName]),
+    el("button", { type: "button", class: "session-bar-logout" }, ["Log out"])
+  ]);
+  bar.querySelector("button").addEventListener("click", logout);
+  return bar;
+}
+
+function renderSchedule() {
+  app.innerHTML = "";
+  app.appendChild(renderSessionBar());
+  app.appendChild(el("p", {}, ["Here's what you're invited to:"]));
+
+  if (!guest.events || guest.events.length === 0) {
+    app.appendChild(el("div", { class: "notice notice-info" }, ["No events are listed for you yet."]));
+    return;
+  }
+
+  guest.events.forEach((ev) => {
+    app.appendChild(el("div", { class: "card event-card" }, [
+      el("h3", {}, [ev.name]),
+      el("div", { class: "event-when" }, [formatEventWhen(ev)]),
+      ev.location ? el("div", { class: "event-where" }, ["📍 " + ev.location]) : null,
+      ev.details ? el("div", { class: "event-details" }, [ev.details]) : null,
+      renderTimeline(ev),
+      renderMap(ev)
+    ]));
+  });
+}
+
+renderNameForm();
+</script>
+</body>
+</html>
