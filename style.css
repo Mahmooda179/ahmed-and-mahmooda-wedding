@@ -123,13 +123,16 @@ a:hover { text-decoration: underline; }
 
 /* ---------- welcome / hero page ---------- */
 
-body.hero-page {
-  height: 100vh;
-  overflow: hidden;
-}
-
 .hero {
-  height: 100vh;
+  /* min-height (not height) + no overflow:hidden means: fills the
+     screen on a normal device, but if content is ever a touch taller
+     than the viewport (a long name, a small/odd device), the page
+     just scrolls a little instead of clipping content with no way
+     to reach it. 100vh is a fallback for older browsers; 100dvh
+     (declared second so it wins where supported) correctly excludes
+     the mobile address bar / toolbar, which plain vh does not. */
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--emerald-dark);
@@ -139,7 +142,7 @@ body.hero-page {
 .hero-image-wrap {
   flex: 1 1 auto;
   position: relative;
-  min-height: 0; /* let flexbox actually shrink this, not just grow */
+  min-height: 240px;
   overflow: hidden;
   background: var(--emerald-dark);
   display: flex;
@@ -189,14 +192,6 @@ body.hero-page {
   margin: 0 0 0.7rem;
   letter-spacing: 0.03em;
   font-size: 0.92rem;
-}
-
-/* On short screens (small phones, browser chrome eating vertical space),
-   allow the hero to scroll rather than crush the image unreadably thin. */
-@media (max-height: 620px) {
-  body.hero-page { height: auto; overflow: auto; }
-  .hero { height: auto; min-height: 100vh; }
-  .hero-image-wrap { min-height: 220px; flex: 0 0 220px; }
 }
 
 .countdown {
