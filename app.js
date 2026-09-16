@@ -2,25 +2,64 @@
    CONFIG — paste your Google Apps Script Web App URL below.
    See README.md, step "Deploy the backend".
    ============================================================ */
-var API_URL = "https://script.google.com/macros/s/AKfycbyC641nui9fh-r90hOOGjs10_Pzx9IWQLv-EE6iVddSE96XcGITGbUmCXj5v8-cWLfH/exec";
+var API_URL = "https://script.google.com/macros/library/d/1hIed0ZYKyaUy7lgwH0Q2uH-kV5XxlkVMmu97oV2BxTDFVWpEMnMpdIgl/7";
 
 /**
  * Calls the Apps Script backend. Uses text/plain as the content type
  * on purpose — this avoids a CORS preflight request, which Apps
  * Script web apps don't handle. Do not change to application/json.
+ *
+ * Retries automatically on genuinely ambiguous failures — a dropped
+ * connection, a bad HTTP status, or a response that isn't valid JSON
+ * (Apps Script can return an HTML error page under load, e.g. from
+ * its ~30-simultaneous-execution ceiling). These are cases where we
+ * don't actually know whether the server processed the request, so
+ * retrying is the right move.
+ *
+ * It does NOT retry once a well-formed {ok: true|false, ...} answer
+ * comes back — that's a definitive response from the server's own
+ * logic, not a transient hiccup, so retrying it would accomplish
+ * nothing (or, for something like "create a new guest", could create
+ * a duplicate if the first attempt actually succeeded and only the
+ * reply got lost). Save actions on the admin side send a client-
+ * generated id specifically so a retried create is a safe no-op
+ * rather than a duplicate.
  */
 async function api(action, payload) {
   payload = payload || {};
   payload.action = action;
-  const res = await fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) {
-    throw new Error("Network error (" + res.status + "). Check that API_URL in app.js is set correctly.");
+
+  const maxAttempts = 3;
+  const baseDelayMs = 400;
+  let lastErr;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        throw new Error("Network error (" + res.status + ").");
+      }
+      try {
+        return await res.json();
+      } catch (parseErr) {
+        throw new Error("Unexpected response from the server.");
+      }
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, baseDelayMs * Math.pow(2, attempt - 1)));
+      }
+    }
   }
-  return res.json();
+
+  throw new Error(
+    "Couldn't reach the server after " + maxAttempts + " tries — it may be busy. " +
+    "Please try again in a moment. (" + (lastErr && lastErr.message ? lastErr.message : "unknown error") + ")"
+  );
 }
 
 /* ---------- small shared UI helpers ---------- */
@@ -77,6 +116,14 @@ function showError(container, message) {
 function showNotice(container, message, type) {
   container.innerHTML = "";
   container.appendChild(el("div", { class: "notice notice-" + (type || "info") }, [message]));
+}
+
+/** Generates an id on the client for a brand-new record, so the same id
+ *  is reused across any automatic retries of the save request — making
+ *  "create" safely idempotent instead of risking a duplicate row if a
+ *  retried request actually succeeds twice. */
+function newClientId(prefix) {
+  return prefix + "_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
 }
 
 /** A vertical timeline of {time, label} items for one event, or null if

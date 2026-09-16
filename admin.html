@@ -197,6 +197,10 @@ function openGuestForm(guest) {
   const isEdit = !!guest;
   const g = guest || { firstName: "", lastName: "", contact: "", maxPlusOnes: 0, eventIds: [] };
   const gEventIds = asArray(g.eventIds);
+  // Generated once here (not inside the save handler) so a retried save —
+  // automatic or from clicking again after an error — reuses the same id
+  // instead of risking a duplicate row.
+  const saveId = isEdit ? g.id : newClientId("g");
 
   const fnInput = el("input", { type: "text", value: g.firstName });
   const lnInput = el("input", { type: "text", value: g.lastName });
@@ -226,7 +230,7 @@ function openGuestForm(guest) {
     saveBtn.textContent = "Saving...";
     try {
       const payloadGuest = {
-        id: isEdit ? g.id : undefined,
+        id: saveId,
         firstName, lastName,
         contact: contactInput.value.trim(),
         maxPlusOnes: parseInt(plusInput.value, 10) || 0,
@@ -359,6 +363,7 @@ function openEventForm(ev) {
   zone.innerHTML = "";
   const isEdit = !!ev;
   const e = ev || { name: "", date: "", startTime: "", endTime: "", location: "", address: "", details: "", order: events.length + 1, timeline: [] };
+  const saveId = isEdit ? e.id : newClientId("e");
 
   const nameInput = el("input", { type: "text", value: e.name });
   const dateInput = el("input", { type: "date", value: e.date || "" });
@@ -414,7 +419,7 @@ function openEventForm(ev) {
     saveBtn.textContent = "Saving...";
     try {
       const payloadEvent = {
-        id: isEdit ? e.id : undefined,
+        id: saveId,
         name,
         date: dateInput.value,
         startTime,
