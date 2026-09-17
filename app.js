@@ -123,7 +123,7 @@ function showNotice(container, message, type) {
    submission has no other path forward otherwise. Kept separate from
    showError/showNotice above, which admin.html also uses for its own
    errors — those shouldn't tell Mahmooda to go contact Mahmooda. */
-var SUPPORT_CONTACT_LINE = "Having trouble? Reach out to Mahmooda at 708-567-8469.";
+var SUPPORT_CONTACT_LINE = "Having trouble? Reach out to Mahmooda at 708-567-8469 for help.";
 
 function guestErrorNotice(message) {
   return el("div", { class: "notice notice-error" }, [
