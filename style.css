@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Karla:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Karla:wght@400;500;700&family=Parisienne&display=swap');
 
 :root {
   --ink: #2a241c;
@@ -140,6 +140,21 @@ a:hover { text-decoration: underline; }
   color: var(--parchment);
 }
 
+.hero-names {
+  flex: 0 0 auto;
+  text-align: center;
+  padding: 1.6rem 1.4rem 0.6rem;
+}
+
+.couple-names {
+  font-family: 'Parisienne', cursive;
+  font-weight: 400;
+  font-size: clamp(2.3rem, 9vw, 3.4rem);
+  line-height: 1.15;
+  color: var(--parchment);
+  margin: 0;
+}
+
 .hero-image-wrap {
   flex: 1 1 auto;
   position: relative;
@@ -180,12 +195,6 @@ a:hover { text-decoration: underline; }
   flex: 0 0 auto;
   text-align: center;
   padding: 1.1rem 1.4rem 1.3rem;
-}
-
-.hero-footer h1 {
-  color: var(--parchment);
-  font-size: 1.7rem;
-  margin-bottom: 0.15rem;
 }
 
 .hero-footer p {
@@ -636,7 +645,7 @@ footer.site-footer {
 @media (max-width: 480px) {
   .page-wrap { padding: 1.8rem 1rem 4rem; }
   .field-row { flex-direction: column; gap: 0; }
-  .hero-footer h1 { font-size: 1.9rem; }
+  .couple-names { font-size: 2.1rem; }
   .timeline-row-edit { flex-wrap: wrap; }
   .timeline-row-edit input[type="text"] { flex-basis: 100%; order: 3; margin-top: 0.3rem; }
 }
