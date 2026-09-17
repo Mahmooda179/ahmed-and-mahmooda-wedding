@@ -11,7 +11,8 @@
 <nav class="site-nav">
   <a href="index.html">Home</a>
   <a href="rsvp.html" aria-current="page">RSVP</a>
-  <a href="schedule.html">Schedule</a>
+  <a href="agenda.html">Agenda</a>
+  <a href="gifts.html">Gifts</a>
 </nav>
 
 <div class="deadline-banner">Please RSVP by October 31, 2026</div>
@@ -292,7 +293,7 @@ function renderThankYou() {
   ]));
   app.appendChild(summary);
   app.appendChild(el("div", { class: "btn-row", style: "justify-content:center" }, [
-    el("a", { href: "schedule.html", class: "btn btn-outline" }, ["View schedule"]),
+    el("a", { href: "agenda.html", class: "btn btn-outline" }, ["View agenda"]),
     el("a", { href: "index.html", class: "btn" }, ["Back home"])
   ]));
 }

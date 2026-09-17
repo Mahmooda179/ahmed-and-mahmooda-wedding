@@ -2,7 +2,7 @@
    CONFIG — paste your Google Apps Script Web App URL below.
    See README.md, step "Deploy the backend".
    ============================================================ */
-var API_URL = "https://script.google.com/macros/s/AKfycbyC641nui9fh-r90hOOGjs10_Pzx9IWQLv-EE6iVddSE96XcGITGbUmCXj5v8-cWLfH/exec";
+var API_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
 
 /**
  * Calls the Apps Script backend. Uses text/plain as the content type
@@ -118,12 +118,12 @@ function showNotice(container, message, type) {
   container.appendChild(el("div", { class: "notice notice-" + (type || "info") }, [message]));
 }
 
-/* Guest-facing errors (rsvp.html, schedule.html) always include a way to
+/* Guest-facing errors (rsvp.html, agenda.html) always include a way to
    reach a real person — a guest who's stuck on a name lookup or a failed
    submission has no other path forward otherwise. Kept separate from
    showError/showNotice above, which admin.html also uses for its own
    errors — those shouldn't tell Mahmooda to go contact Mahmooda. */
-var SUPPORT_CONTACT_LINE = "Having trouble? Reach out to Mahmooda at 708-567-8469 for help.";
+var SUPPORT_CONTACT_LINE = "Having trouble? Reach out to Mahmooda at 708-567-8469.";
 
 function guestErrorNotice(message) {
   return el("div", { class: "notice notice-error" }, [

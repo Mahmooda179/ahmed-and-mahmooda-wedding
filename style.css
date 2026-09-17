@@ -194,14 +194,15 @@ a:hover { text-decoration: underline; }
 .hero-footer {
   flex: 0 0 auto;
   text-align: center;
-  padding: 1.1rem 1.4rem 1.3rem;
+  padding: 0.5rem 1.4rem 1.3rem;
 }
 
 .hero-footer p {
-  color: var(--gold-light);
+  color: var(--parchment);
   margin: 0 0 0.7rem;
   letter-spacing: 0.03em;
   font-size: 0.92rem;
+  line-height: 1.5;
 }
 
 .countdown {

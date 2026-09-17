@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Schedule — Ahmed &amp; Mahmooda</title>
+<title>Agenda — Ahmed &amp; Mahmooda</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -11,12 +11,13 @@
 <nav class="site-nav">
   <a href="index.html">Home</a>
   <a href="rsvp.html">RSVP</a>
-  <a href="schedule.html" aria-current="page">Schedule</a>
+  <a href="agenda.html" aria-current="page">Agenda</a>
+  <a href="gifts.html">Gifts</a>
 </nav>
 
 <main class="page-wrap narrow">
   <div class="page-header">
-    <h1>Schedule</h1>
+    <h1>Agenda</h1>
   </div>
   <div id="app"></div>
 </main>
@@ -37,7 +38,7 @@ function renderNameForm(errorMsg) {
     el("label", { for: "ln" }, ["Last name"]),
     el("input", { type: "text", id: "ln", autocomplete: "family-name", required: "required" }),
     el("div", { class: "btn-row" }, [
-      el("button", { type: "submit", class: "btn" }, ["Show my schedule"])
+      el("button", { type: "submit", class: "btn" }, ["Show my agenda"])
     ])
   ]);
   if (errorMsg) app.appendChild(guestErrorNotice(errorMsg));
@@ -59,7 +60,7 @@ function renderNameForm(errorMsg) {
         renderConfirmForm();
       } else {
         guest = res.guest;
-        renderSchedule();
+        renderAgenda();
       }
     } catch (err) {
       renderNameForm("Something went wrong reaching the server. " + err.message);
@@ -70,7 +71,7 @@ function renderNameForm(errorMsg) {
 function renderConfirmForm(errorMsg) {
   app.innerHTML = "";
   const info = el("div", { class: "notice notice-info" }, [
-    "A few guests share this name. Please confirm the phone number you gave us so we show the right schedule."
+    "A few guests share this name. Please confirm the phone number you gave us so we show the right agenda."
   ]);
   const form = el("form", { class: "card" }, [
     el("label", { for: "contact" }, ["Phone number"]),
@@ -96,7 +97,7 @@ function renderConfirmForm(errorMsg) {
       const res = await api("verifyGuest", { firstName: pendingName.firstName, lastName: pendingName.lastName, contact });
       if (!res.ok) { renderConfirmForm(res.error); return; }
       guest = res.guest;
-      renderSchedule();
+      renderAgenda();
     } catch (err) {
       renderConfirmForm("Something went wrong reaching the server. " + err.message);
     }
@@ -118,10 +119,10 @@ function renderSessionBar() {
   return bar;
 }
 
-function renderSchedule() {
+function renderAgenda() {
   app.innerHTML = "";
   app.appendChild(renderSessionBar());
-  app.appendChild(el("p", {}, ["Here's what you're invited to:"]));
+  app.appendChild(el("p", {}, ["Here is the agenda for your events:"]));
 
   if (!guest.events || guest.events.length === 0) {
     app.appendChild(el("div", { class: "notice notice-info" }, ["No events are listed for you yet."]));
