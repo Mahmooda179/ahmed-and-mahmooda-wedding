@@ -2,7 +2,7 @@
    CONFIG — paste your Google Apps Script Web App URL below.
    See README.md, step "Deploy the backend".
    ============================================================ */
-var API_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+var API_URL = "https://script.google.com/macros/s/AKfycbyC641nui9fh-r90hOOGjs10_Pzx9IWQLv-EE6iVddSE96XcGITGbUmCXj5v8-cWLfH/exec";
 
 /**
  * Calls the Apps Script backend. Uses text/plain as the content type
