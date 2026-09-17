@@ -118,6 +118,25 @@ function showNotice(container, message, type) {
   container.appendChild(el("div", { class: "notice notice-" + (type || "info") }, [message]));
 }
 
+/* Guest-facing errors (rsvp.html, schedule.html) always include a way to
+   reach a real person — a guest who's stuck on a name lookup or a failed
+   submission has no other path forward otherwise. Kept separate from
+   showError/showNotice above, which admin.html also uses for its own
+   errors — those shouldn't tell Mahmooda to go contact Mahmooda. */
+var SUPPORT_CONTACT_LINE = "Having trouble? Reach out to Mahmooda at 708-567-8469.";
+
+function guestErrorNotice(message) {
+  return el("div", { class: "notice notice-error" }, [
+    el("div", {}, [message]),
+    el("div", { class: "notice-help" }, [SUPPORT_CONTACT_LINE])
+  ]);
+}
+
+function showGuestError(container, message) {
+  container.innerHTML = "";
+  container.appendChild(guestErrorNotice(message));
+}
+
 /** Generates an id on the client for a brand-new record, so the same id
  *  is reused across any automatic retries of the save request — making
  *  "create" safely idempotent instead of risking a duplicate row if a

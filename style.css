@@ -513,6 +513,12 @@ textarea {
 .notice-success { border-left-color: var(--emerald); }
 .notice-info { border-left-color: var(--gold); }
 
+.notice-help {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  opacity: 0.8;
+}
+
 .progress {
   display: flex;
   justify-content: center;

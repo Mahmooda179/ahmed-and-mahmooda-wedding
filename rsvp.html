@@ -50,7 +50,7 @@ function renderNameForm(errorMsg) {
     ])
   ]);
   app.appendChild(form);
-  if (errorMsg) app.insertBefore(el("div", { class: "notice notice-error" }, [errorMsg]), form);
+  if (errorMsg) app.insertBefore(guestErrorNotice(errorMsg), form);
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -95,7 +95,7 @@ function renderConfirmForm(errorMsg) {
       el("button", { type: "button", class: "btn btn-outline", id: "back" }, ["Back"])
     ])
   ]);
-  if (errorMsg) app.appendChild(el("div", { class: "notice notice-error" }, [errorMsg]));
+  if (errorMsg) app.appendChild(guestErrorNotice(errorMsg));
   app.appendChild(info);
   app.appendChild(form);
 
@@ -231,16 +231,16 @@ function renderWizard() {
 
   continueBtn.addEventListener("click", async () => {
     if (attending === null) {
-      showError(errBox, "Please let us know whether you can attend.");
+      showGuestError(errBox, "Please let us know whether you can attend.");
       return;
     }
     if (attending === true && headcount > maxAllowed) {
-      showError(errBox, "You're invited with up to " + maxAllowed + (maxAllowed === 1 ? " person" : " people") +
+      showGuestError(errBox, "You're invited with up to " + maxAllowed + (maxAllowed === 1 ? " person" : " people") +
         " total (including yourself), but you entered " + headcount + ". Please lower the number before submitting.");
       return;
     }
     if (attending === true && headcount < 1) {
-      showError(errBox, "Please enter at least 1 for the number attending.");
+      showGuestError(errBox, "Please enter at least 1 for the number attending.");
       return;
     }
     continueBtn.disabled = true;
@@ -253,7 +253,7 @@ function renderWizard() {
         headcount: attending ? headcount : 0
       });
       if (!res.ok) {
-        showError(errBox, res.error || "Something went wrong.");
+        showGuestError(errBox, res.error || "Something went wrong.");
         continueBtn.disabled = false;
         continueBtn.textContent = "Continue";
         return;
@@ -263,7 +263,7 @@ function renderWizard() {
       eventIndex += 1;
       renderWizard();
     } catch (err) {
-      showError(errBox, "Couldn't reach the server: " + err.message);
+      showGuestError(errBox, "Couldn't reach the server: " + err.message);
       continueBtn.disabled = false;
     }
   });
