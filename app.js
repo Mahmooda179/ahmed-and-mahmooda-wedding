@@ -180,3 +180,25 @@ function renderMap(ev) {
   }, ["Open in Google Maps"]);
   return el("div", { class: "event-map-wrap" }, [iframe, link]);
 }
+
+/** A small labeled block for a free-text event field (dress code, parking
+ *  info) — or null if that field is empty, so an event with nothing to
+ *  say there just quietly shows nothing. */
+function renderInfoSection(label, text) {
+  if (!text) return null;
+  return el("div", { class: "event-info-section" }, [
+    el("div", { class: "event-info-label" }, [label]),
+    el("div", { class: "event-info-text" }, [text])
+  ]);
+}
+
+/** Unlike renderInfoSection, this is for something guests genuinely
+ *  shouldn't miss — a highlighted callout box rather than a quiet label,
+ *  so it doesn't blend in with the other, lower-stakes event details. */
+function renderImportantNote(ev) {
+  if (!ev.notes) return null;
+  return el("div", { class: "event-important-note" }, [
+    el("div", { class: "event-important-note-label" }, ["📌 Please note"]),
+    el("div", { class: "event-important-note-text" }, [ev.notes])
+  ]);
+}

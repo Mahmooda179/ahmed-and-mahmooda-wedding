@@ -368,6 +368,48 @@ a:hover { text-decoration: underline; }
   font-size: 0.82rem;
 }
 
+.event-info-section {
+  margin-top: 0.9rem;
+}
+
+.event-info-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.event-info-text {
+  font-size: 0.92rem;
+  color: var(--ink);
+  white-space: pre-line;
+}
+
+.event-important-note {
+  margin: 1rem 0;
+  padding: 0.9rem 1.1rem;
+  background: #fdf6e6;
+  border-left: 4px solid var(--gold);
+  border-radius: var(--radius);
+}
+
+.event-important-note-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #7a5a12;
+  margin-bottom: 0.3rem;
+}
+
+.event-important-note-text {
+  font-size: 0.94rem;
+  color: var(--ink);
+  white-space: pre-line;
+}
+
 .timeline-editor {
   margin-bottom: 0.5rem;
 }

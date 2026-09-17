@@ -135,7 +135,10 @@ function renderAgenda() {
       el("div", { class: "event-when" }, [formatEventWhen(ev)]),
       ev.location ? el("div", { class: "event-where" }, ["📍 " + ev.location]) : null,
       ev.details ? el("div", { class: "event-details" }, [ev.details]) : null,
+      renderImportantNote(ev),
       renderTimeline(ev),
+      renderInfoSection("Dress code", ev.dressCode),
+      renderInfoSection("Parking", ev.parkingInfo),
       renderMap(ev)
     ]));
   });

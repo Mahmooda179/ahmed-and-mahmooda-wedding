@@ -308,6 +308,7 @@ function buildEventsTab() {
     el("th", {}, ["Location"]),
     el("th", {}, ["Map"]),
     el("th", {}, ["Timeline"]),
+    el("th", {}, ["Extra info"]),
     el("th", {}, ["RSVPs"]),
     el("th", {}, ["Actions"])
   ])]));
@@ -332,6 +333,12 @@ function buildEventsTab() {
 
     const timelineCount = Array.isArray(ev.timeline) ? ev.timeline.length : 0;
 
+    const extraInfoCell = el("td", {}, [
+      el("span", { class: "tag" + (ev.dressCode ? " tag-yes" : "") }, ["Dress " + (ev.dressCode ? "✓" : "—")]),
+      el("span", { class: "tag" + (ev.parkingInfo ? " tag-yes" : "") }, ["Parking " + (ev.parkingInfo ? "✓" : "—")]),
+      el("span", { class: "tag" + (ev.notes ? " tag-yes" : "") }, ["Notes " + (ev.notes ? "✓" : "—")])
+    ]);
+
     tbody.appendChild(el("tr", {}, [
       el("td", {}, [String(ev.order)]),
       el("td", {}, [ev.name]),
@@ -341,6 +348,7 @@ function buildEventsTab() {
       el("td", {}, [ev.location || "—"]),
       el("td", {}, [ev.address ? "✓" : "—"]),
       el("td", {}, [timelineCount ? (timelineCount + (timelineCount === 1 ? " item" : " items")) : "—"]),
+      extraInfoCell,
       statsCell,
       actionsCell
     ]));
@@ -362,7 +370,7 @@ function openEventForm(ev) {
   const zone = document.getElementById("eventFormZone");
   zone.innerHTML = "";
   const isEdit = !!ev;
-  const e = ev || { name: "", date: "", startTime: "", endTime: "", location: "", address: "", details: "", order: events.length + 1, timeline: [] };
+  const e = ev || { name: "", date: "", startTime: "", endTime: "", location: "", address: "", details: "", order: events.length + 1, timeline: [], dressCode: "", parkingInfo: "", notes: "" };
   const saveId = isEdit ? e.id : newClientId("e");
 
   const nameInput = el("input", { type: "text", value: e.name });
@@ -373,6 +381,9 @@ function openEventForm(ev) {
   const addressInput = el("input", { type: "text", value: e.address || "", placeholder: "e.g. 123 Main St, Dallas, TX 75201" });
   const detailsInput = el("textarea", { rows: "2" }, [e.details || ""]);
   const orderInput = el("input", { type: "number", value: String(e.order) });
+  const dressCodeInput = el("input", { type: "text", value: e.dressCode || "", placeholder: "e.g. Black tie, Traditional formal" });
+  const parkingInput = el("textarea", { rows: "2", placeholder: "e.g. Free self-parking in the north lot" }, [e.parkingInfo || ""]);
+  const notesInput = el("textarea", { rows: "2", placeholder: "e.g. Ceremony is outdoors — please dress for the weather" }, [e.notes || ""]);
 
   // Timeline editor: a working local copy of items, re-rendered on every
   // add/remove so row indices always stay correct.
@@ -428,7 +439,10 @@ function openEventForm(ev) {
         address: addressInput.value.trim(),
         details: detailsInput.value.trim(),
         order: parseInt(orderInput.value, 10) || 0,
-        timeline: cleanTimeline
+        timeline: cleanTimeline,
+        dressCode: dressCodeInput.value.trim(),
+        parkingInfo: parkingInput.value.trim(),
+        notes: notesInput.value.trim()
       };
       const res = await api("adminSaveEvent", { passcode, event: payloadEvent });
       if (!res.ok) { showError(errBox, res.error || "Failed to save."); saveBtn.disabled = false; return; }
@@ -450,11 +464,14 @@ function openEventForm(ev) {
     ]),
     el("label", {}, ["Location name"]), locInput,
     el("label", {}, ["Venue address (optional — shows a map to guests invited to this event)"]), addressInput,
+    el("label", {}, ["Parking information (optional)"]), parkingInput,
     el("label", {}, ["Details (optional)"]), detailsInput,
+    el("label", {}, ["Dress code (optional)"]), dressCodeInput,
     el("label", {}, ["Order"]), orderInput,
     el("label", {}, ["Timeline (optional — shown to guests invited to this event)"]),
     timelineRows,
     el("div", { class: "btn-row", style: "margin-bottom:1rem" }, [addTimelineBtn]),
+    el("label", {}, ["Important notes (optional) — shown to guests in a highlighted callout, near the top of the event"]), notesInput,
     errBox,
     el("div", { class: "btn-row" }, [saveBtn, cancelBtn])
   ]));
