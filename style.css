@@ -309,6 +309,75 @@ a:hover { text-decoration: underline; }
   margin: 1.2rem 0 0;
 }
 
+.faq-question {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--sage-dark);
+  margin-bottom: 0.35rem;
+}
+
+.faq-answer {
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.contact-card { text-align: left; }
+
+.contact-heading {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: var(--sage-dark);
+  text-align: center;
+  margin-bottom: 1.1rem;
+}
+
+.contact-section {
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+}
+
+.contact-block {
+  flex: 1 1 200px;
+  text-align: center;
+  padding: 1.2rem 1rem;
+  border: 1px solid var(--line);
+  background: var(--parchment);
+}
+
+.contact-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+}
+
+.contact-person + .contact-person {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.contact-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--sage-dark);
+}
+
+.contact-phone {
+  display: inline-block;
+  font-size: 0.9rem;
+  color: var(--rose-deep);
+  margin-top: 0.2rem;
+}
+
+.contact-phone:hover { text-decoration: underline; }
+
 .gift-links {
   display: flex;
   justify-content: center;
