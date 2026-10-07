@@ -45,6 +45,36 @@
   </div>
 </div>
 
+<!--
+  Slim sticky RSVP bar. It stays hidden by default and is only shown by the
+  script below while the page's own RSVP / Agenda / Gifts / FAQ buttons are
+  out of view. As soon as those buttons scroll into view (the bottom of the
+  page), the bar slides away. If the script can't run for any reason, the
+  bar simply never appears.
+-->
+<div id="sticky-rsvp" class="sticky-rsvp" aria-hidden="true">
+  <a href="rsvp.html" tabindex="-1">RSVP</a>
+</div>
+
+<script>
+(function () {
+  var bar = document.getElementById("sticky-rsvp");
+  var links = document.querySelector(".hero-links");
+  if (!bar || !links || !("IntersectionObserver" in window)) return;
+
+  var link = bar.querySelector("a");
+  function setVisible(show) {
+    bar.classList.toggle("is-visible", show);
+    bar.setAttribute("aria-hidden", show ? "false" : "true");
+    link.tabIndex = show ? 0 : -1;
+  }
+
+  new IntersectionObserver(function (entries) {
+    setVisible(!entries[entries.length - 1].isIntersecting);
+  }).observe(links);
+})();
+</script>
+
 <script>
 /* Set this to your wedding date/time. Use 24-hour time and your own
    local timezone offset (e.g. "-05:00" for Dallas/Central). If you have

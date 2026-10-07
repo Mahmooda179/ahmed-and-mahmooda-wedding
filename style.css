@@ -292,6 +292,46 @@ a:hover { text-decoration: underline; }
   text-decoration: none;
 }
 
+/* Slim sticky RSVP bar on the welcome page. Hidden unless the script in
+   index.html adds .is-visible, and it sits above the (faint) Admin link
+   while shown, so guests never see that link underneath it. */
+.sticky-rsvp {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  background: var(--parchment);
+  border-top: 1px solid var(--gold);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform 0.25s ease, visibility 0s linear 0.25s;
+}
+
+.sticky-rsvp.is-visible {
+  transform: translateY(0);
+  visibility: visible;
+  transition: transform 0.25s ease, visibility 0s;
+}
+
+.sticky-rsvp a {
+  display: inline-block;
+  background: var(--sage-dark);
+  color: var(--parchment);
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  padding: 0.55rem 2.4rem;
+  border-radius: var(--radius);
+}
+
+.sticky-rsvp a:hover {
+  background: var(--sage);
+  text-decoration: none;
+}
+
 /* ---------- cards / forms ---------- */
 
 .card {
