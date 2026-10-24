@@ -75,6 +75,13 @@
 })();
 </script>
 
+<script src="app.js"></script>
+<script>
+/* When the admin closes RSVPs, the deadline line under the countdown
+   changes to say so. */
+updateDeadlineNotice(document.querySelector(".rsvp-deadline"), "RSVPs are now closed");
+</script>
+
 <script>
 /* Set this to your wedding date/time. Use 24-hour time and your own
    local timezone offset (e.g. "-05:00" for Dallas/Central). If you have

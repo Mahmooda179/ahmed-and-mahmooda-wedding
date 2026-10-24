@@ -74,7 +74,7 @@ function renderNameForm(errorMsg) {
       } else {
         guest = res.guest;
         eventIndex = 0;
-        renderWizard();
+        if (res.rsvpClosed) renderClosed(); else renderWizard();
       }
     } catch (err) {
       renderNameForm("Something went wrong reaching the server. " + err.message);
@@ -121,7 +121,7 @@ function renderConfirmForm(errorMsg) {
       }
       guest = res.guest;
       eventIndex = 0;
-      renderWizard();
+      if (res.rsvpClosed) renderClosed(); else renderWizard();
     } catch (err) {
       renderConfirmForm("Something went wrong reaching the server. " + err.message);
     }
@@ -163,6 +163,16 @@ function renderProgress() {
 function renderWizard() {
   app.innerHTML = "";
   app.appendChild(renderSessionBar());
+
+  // RSVPs are closed for everyone else, but the admin gave this guest extra
+  // time, so say so (and drop the deadline banner, which no longer applies).
+  if (guest.lateRsvpActive) {
+    const banner = document.querySelector(".deadline-banner");
+    if (banner) banner.style.display = "none";
+    app.appendChild(el("div", { class: "notice notice-info", style: "margin-bottom:1rem" }, [
+      "The general RSVP deadline has passed, but we are glad to still accept your response. Please reply as soon as you can."
+    ]));
+  }
 
   if (!guest.events || guest.events.length === 0) {
     app.appendChild(el("div", { class: "notice notice-info" }, [
@@ -257,6 +267,10 @@ function renderWizard() {
         attending: attending,
         headcount: attending ? headcount : 0
       });
+      if (!res.ok && res.rsvpClosed) {
+        renderClosed();
+        return;
+      }
       if (!res.ok) {
         showGuestError(errBox, res.error || "Something went wrong.");
         continueBtn.disabled = false;
@@ -274,6 +288,39 @@ function renderWizard() {
   });
 
   app.appendChild(card);
+}
+
+/* ---------------- step: RSVPs closed ---------------- */
+
+function contactPerson(name, display, tel) {
+  return el("div", { class: "contact-person" }, [
+    el("div", { class: "contact-name" }, [name]),
+    el("a", { class: "contact-phone", href: "tel:" + tel }, [display])
+  ]);
+}
+
+/** Shown instead of the RSVP form once the admin has closed RSVPs. The
+ *  guest has already been found by name at this point, so they get the
+ *  session bar (with Log out) and a way to still see their agenda. */
+function renderClosed() {
+  const banner = document.querySelector(".deadline-banner");
+  if (banner) banner.style.display = "none";
+
+  app.innerHTML = "";
+  app.appendChild(renderSessionBar());
+  app.appendChild(el("div", { class: "card closed-card" }, [
+    el("h2", {}, ["RSVPs Are Now Closed"]),
+    el("p", {}, ["We are sorry, but the deadline to RSVP has passed and we are no longer accepting responses online."]),
+    el("p", {}, ["If you have any questions or concerns, please reach out to:"]),
+    el("div", { class: "closed-contacts" }, [
+      contactPerson("Syed Ali", "630-670-5794", "+16306705794"),
+      contactPerson("Ahmed Ahmed-Fouad", "908-283-6356", "+19082836356")
+    ]),
+    el("p", {}, ["You can still view the details of your events on the agenda."]),
+    el("div", { class: "btn-row", style: "justify-content:center" }, [
+      el("a", { href: "agenda.html", class: "btn" }, ["View agenda"])
+    ])
+  ]));
 }
 
 /* ---------------- step: thank you ---------------- */
@@ -303,6 +350,9 @@ function renderThankYou() {
 }
 
 /* ---------------- boot ---------------- */
+
+/* When the admin closes RSVPs, the banner at the top changes to say so. */
+updateDeadlineNotice(document.querySelector(".deadline-banner"), "The RSVP deadline has passed");
 
 renderNameForm();
 </script>

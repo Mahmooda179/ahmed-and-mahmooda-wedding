@@ -808,6 +808,43 @@ table.admin-table th {
 }
 .checkbox-list input { width: auto; margin: 0; }
 
+/* ---------- RSVP closed (guest page) and admin switch ---------- */
+
+.closed-card { text-align: center; }
+.closed-card h2 { font-size: 1.7rem; }
+.closed-contacts {
+  display: flex;
+  justify-content: center;
+  gap: 1.4rem;
+  flex-wrap: wrap;
+  margin: 1rem 0 1.4rem;
+}
+.closed-contacts .contact-person + .contact-person {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.rsvp-switch { border-left: 4px solid var(--sage); }
+.rsvp-switch.is-closed { border-left-color: var(--rose-deep); background: #fdf6f4; }
+.rsvp-switch .checkbox-list { margin-bottom: 0.5rem; }
+.rsvp-switch .checkbox-list label { font-weight: 700; font-size: 0.95rem; }
+.rsvp-switch-status { font-size: 0.85rem; color: #6b6152; }
+
+.rsvp-edit { margin-bottom: 1rem; }
+.rsvp-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.rsvp-edit-name { flex: 1 1 150px; font-size: 0.92rem; color: var(--sage-dark); font-weight: 700; }
+.rsvp-edit-row select { width: auto; margin: 0; padding: 0.45rem 0.6rem; font-size: 0.92rem; }
+.rsvp-edit-count { align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #6b6152; }
+.rsvp-edit-row input[type="number"] { width: 76px; margin: 0; padding: 0.45rem 0.6rem; }
+
 footer.site-footer {
   text-align: center;
   padding: 2rem 1rem;

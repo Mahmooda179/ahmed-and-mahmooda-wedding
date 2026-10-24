@@ -25,6 +25,7 @@
 let passcode = null;
 let guests = [];
 let events = [];
+let settings = { rsvpClosed: false };
 let activeTab = "guests";
 const app = document.getElementById("app");
 
@@ -63,6 +64,7 @@ async function loadAll() {
   if (!res.ok) throw new Error(res.error || "Failed to load data.");
   guests = res.guests;
   events = res.events;
+  settings = res.settings || { rsvpClosed: false };
 }
 
 /* ---------------- shell + tabs ---------------- */
@@ -92,6 +94,7 @@ function renderShell() {
 
 function renderShellInner() {
   app.innerHTML = "";
+  app.appendChild(buildRsvpSwitch());
   const tabs = el("div", { class: "admin-tabs" }, [
     tabButton("guests", "Guests"),
     tabButton("events", "Events")
@@ -114,6 +117,51 @@ function renderTabBody() {
   body.innerHTML = "";
   if (activeTab === "guests") body.appendChild(buildGuestsTab());
   else body.appendChild(buildEventsTab());
+}
+
+/* ---------------- RSVP open / closed switch ---------------- */
+
+/** The "RSVPs closed" checkbox. It saves the moment it's toggled (no
+ *  separate save button), and only flips on screen once the server has
+ *  confirmed — if the request fails, it snaps back and says so. */
+function buildRsvpSwitch() {
+  const cb = el("input", { type: "checkbox", id: "rsvpClosedCb" });
+  cb.checked = !!settings.rsvpClosed;
+  const status = el("div", { class: "rsvp-switch-status" });
+  const errBox = el("div", {});
+
+  function paintStatus() {
+    status.textContent = settings.rsvpClosed
+      ? "RSVPs are closed. Guests who enter their name see the deadline message instead of the RSVP form, except guests marked \"Allow late RSVP\". You can still add, edit and remove guests, change their events, and update their RSVPs below."
+      : "RSVPs are open. Guests can submit and change their responses.";
+    card.className = "card rsvp-switch" + (settings.rsvpClosed ? " is-closed" : "");
+  }
+
+  cb.addEventListener("change", async () => {
+    const want = cb.checked;
+    cb.disabled = true;
+    errBox.innerHTML = "";
+    try {
+      const res = await api("adminSetRsvpClosed", { passcode, closed: want });
+      if (!res.ok) throw new Error(res.error || "Failed to save.");
+      settings.rsvpClosed = !!res.rsvpClosed;
+    } catch (err) {
+      showError(errBox, "Couldn't update this setting: " + err.message);
+    }
+    cb.checked = !!settings.rsvpClosed;
+    cb.disabled = false;
+    paintStatus();
+  });
+
+  const card = el("div", { class: "card rsvp-switch" }, [
+    el("div", { class: "checkbox-list" }, [
+      el("label", { for: "rsvpClosedCb" }, [cb, "Close RSVPs (the deadline has passed)"])
+    ]),
+    status,
+    errBox
+  ]);
+  paintStatus();
+  return card;
 }
 
 /* ---------------- guests tab ---------------- */
@@ -169,7 +217,10 @@ function buildGuestsTab() {
     actionsCell.appendChild(delBtn);
 
     tbody.appendChild(el("tr", {}, [
-      el("td", {}, [(g.firstName || "") + " " + (g.lastName || "")]),
+      el("td", {}, [
+        (g.firstName || "") + " " + (g.lastName || ""),
+        g.lateRsvp ? el("div", {}, [el("span", { class: "tag tag-yes" }, ["Late RSVP allowed"])]) : null
+      ]),
       el("td", {}, [g.contact || "—"]),
       el("td", {}, [String(1 + (g.maxPlusOnes || 0))]),
       invitedCell,
@@ -195,7 +246,7 @@ function openGuestForm(guest) {
   zone.innerHTML = "";
 
   const isEdit = !!guest;
-  const g = guest || { firstName: "", lastName: "", contact: "", maxPlusOnes: 0, eventIds: [] };
+  const g = guest || { firstName: "", lastName: "", contact: "", maxPlusOnes: 0, eventIds: [], lateRsvp: false };
   const gEventIds = asArray(g.eventIds);
   // Generated once here (not inside the save handler) so a retried save —
   // automatic or from clicking again after an error — reuses the same id
@@ -216,6 +267,61 @@ function openGuestForm(guest) {
     checks.appendChild(el("label", { for: id }, [cb, ev.name]));
   });
 
+  // RSVP editor: one row per event, shown only while that event is checked
+  // above. Lets the admin record or correct a response on the guest's
+  // behalf, including after RSVPs are closed.
+  const rsvpInitial = {};   // eventId -> {attending, headcount}, or null if no response
+  const rsvpRows = {};      // eventId -> { row, select, count }
+  const gRsvps = asObj(g.rsvps);
+  const rsvpEditor = el("div", { class: "rsvp-edit" });
+  const rsvpNone = el("div", { class: "helptext", style: "margin:0" }, ["Check at least one event above to set its RSVP."]);
+  rsvpEditor.appendChild(rsvpNone);
+
+  events.forEach((ev) => {
+    const r = gRsvps[ev.id];
+    const has = !!r && typeof r.attending === "boolean";
+    rsvpInitial[ev.id] = has ? { attending: r.attending, headcount: r.attending ? (r.headcount || 1) : 0 } : null;
+
+    const select = el("select", { "aria-label": "RSVP for " + ev.name }, [
+      el("option", { value: "none" }, ["No response yet"]),
+      el("option", { value: "yes" }, ["Attending"]),
+      el("option", { value: "no" }, ["Not attending"])
+    ]);
+    select.value = !has ? "none" : (r.attending ? "yes" : "no");
+
+    const count = el("input", {
+      type: "number", min: "1",
+      value: String(has && r.attending ? (r.headcount || 1) : 1),
+      "aria-label": "Number attending " + ev.name
+    });
+    const countWrap = el("span", { class: "rsvp-edit-count" }, [count, el("span", {}, ["people attending"])]);
+    function paintCount() { countWrap.style.display = select.value === "yes" ? "inline-flex" : "none"; }
+    select.addEventListener("change", paintCount);
+    paintCount();
+
+    const row = el("div", { class: "rsvp-edit-row" }, [
+      el("span", { class: "rsvp-edit-name" }, [ev.name]),
+      select,
+      countWrap
+    ]);
+    rsvpRows[ev.id] = { row, select, count };
+    rsvpEditor.appendChild(row);
+  });
+
+  function syncRsvpRows() {
+    const selected = Array.from(checks.querySelectorAll("input:checked")).map((c) => c.value);
+    events.forEach((ev) => { rsvpRows[ev.id].row.style.display = selected.indexOf(ev.id) !== -1 ? "" : "none"; });
+    rsvpNone.style.display = selected.length ? "none" : "";
+  }
+  checks.querySelectorAll("input").forEach((c) => c.addEventListener("change", syncRsvpRows));
+  syncRsvpRows();
+
+  const lateCb = el("input", { type: "checkbox", id: "lateRsvpCb" });
+  lateCb.checked = !!g.lateRsvp;
+  const lateBox = el("div", { class: "checkbox-list", style: "margin-bottom:0.3rem" }, [
+    el("label", { for: "lateRsvpCb" }, [lateCb, "Allow late RSVP"])
+  ]);
+
   const errBox = el("div", {});
   const saveBtn = el("button", { type: "button", class: "btn" }, [isEdit ? "Save changes" : "Add guest"]);
   const cancelBtn = el("button", { type: "button", class: "btn btn-outline" }, ["Cancel"]);
@@ -226,6 +332,30 @@ function openGuestForm(guest) {
     const lastName = lnInput.value.trim();
     if (!firstName || !lastName) { showError(errBox, "First and last name are required."); return; }
     const selectedEventIds = Array.from(checks.querySelectorAll("input:checked")).map((c) => c.value);
+
+    // Work out which RSVPs the admin actually changed. Only those are sent,
+    // so saving a guest never overwrites a response that came in meanwhile.
+    const maxParty = 1 + (parseInt(plusInput.value, 10) || 0);
+    const rsvpEdits = {};
+    for (const ev of events) {
+      if (selectedEventIds.indexOf(ev.id) === -1) continue;
+      const row = rsvpRows[ev.id];
+      const choice = row.select.value;
+      let after = null;
+      if (choice === "yes") {
+        const n = parseInt(row.count.value, 10);
+        if (isNaN(n) || n < 1) { showError(errBox, "Enter how many people are attending " + ev.name + " (at least 1)."); return; }
+        if (n > maxParty) { showError(errBox, ev.name + ": " + n + " is more than the max party size of " + maxParty + ". Raise \"Additional guests allowed\" first."); return; }
+        after = { attending: true, headcount: n };
+      } else if (choice === "no") {
+        after = { attending: false, headcount: 0 };
+      }
+      const before = rsvpInitial[ev.id];
+      const same = (before === null && after === null) ||
+        (before !== null && after !== null && before.attending === after.attending && before.headcount === after.headcount);
+      if (!same) rsvpEdits[ev.id] = after;
+    }
+
     saveBtn.disabled = true;
     saveBtn.textContent = "Saving...";
     try {
@@ -234,7 +364,9 @@ function openGuestForm(guest) {
         firstName, lastName,
         contact: contactInput.value.trim(),
         maxPlusOnes: parseInt(plusInput.value, 10) || 0,
-        eventIds: selectedEventIds
+        eventIds: selectedEventIds,
+        lateRsvp: lateCb.checked,
+        rsvpEdits: rsvpEdits
       };
       const res = await api("adminSaveGuest", { passcode, guest: payloadGuest });
       if (!res.ok) { showError(errBox, res.error || "Failed to save."); saveBtn.disabled = false; return; }
@@ -258,6 +390,12 @@ function openGuestForm(guest) {
     plusInput,
     el("label", {}, ["Invited to"]),
     checks,
+    el("label", {}, ["RSVP responses"]),
+    el("div", { class: "helptext", style: "margin-top:0" }, ["Only change these to record or correct a response for the guest. These save even when RSVPs are closed."]),
+    rsvpEditor,
+    el("label", {}, ["After the deadline"]),
+    lateBox,
+    el("div", { class: "helptext", style: "margin-top:0" }, ["Once RSVPs are closed, this guest still sees the normal RSVP form (with a short note that they have extra time) instead of the closed message. Has no effect while RSVPs are open."]),
     errBox,
     el("div", { class: "btn-row" }, [saveBtn, cancelBtn])
   ]));

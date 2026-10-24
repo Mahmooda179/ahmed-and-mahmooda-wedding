@@ -62,6 +62,41 @@ async function api(action, payload) {
   );
 }
 
+/* ---------- site-wide settings (RSVPs open / closed) ---------- */
+
+/** A single best-effort read of the site-wide settings, for pages that only
+ *  want to tweak some wording. Deliberately NOT api(): no retries, short
+ *  timeout, and any failure just resolves to null, so a slow or unreachable
+ *  backend can never break or noticeably delay a plain static page. */
+function fetchSiteSettings(timeoutMs) {
+  const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs || 3000) : null;
+  return fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "getSettings" }),
+    signal: ctl ? ctl.signal : undefined
+  })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => (j && j.ok ? j : null))
+    .catch(() => null)
+    .then((j) => { if (timer) clearTimeout(timer); return j; });
+}
+
+/** Replaces an element's text with `closedText` when RSVPs have been closed.
+ *  The element is kept invisible (but still takes up its space, so nothing
+ *  shifts) until the answer arrives or ~3 seconds pass, so guests never see
+ *  the old deadline flash before it changes. If the answer never comes, the
+ *  original text simply shows. */
+function updateDeadlineNotice(elem, closedText) {
+  if (!elem) return;
+  elem.style.visibility = "hidden";
+  fetchSiteSettings(3000).then((s) => {
+    if (s && s.rsvpClosed) elem.textContent = closedText;
+    elem.style.visibility = "";
+  });
+}
+
 /* ---------- small shared UI helpers ---------- */
 
 function el(tag, attrs, children) {
