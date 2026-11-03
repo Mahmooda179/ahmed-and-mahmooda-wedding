@@ -195,6 +195,68 @@ function renderTimeline(ev) {
   return wrap;
 }
 
+/* ---------- private invitation image on an event card ---------- */
+
+var _inviteLoads = {};   // guestId|eventId -> the in-flight/finished request
+
+/** Full-screen view of the invitation. Click anywhere, the × button, or
+ *  press Escape to close. */
+function openLightbox(src, alt) {
+  const prevFocus = document.activeElement;
+  const closeBtn = el("button", { type: "button", class: "lightbox-close", "aria-label": "Close" }, ["×"]);
+  const img = el("img", { src: src, alt: alt || "" });
+  const box = el("div", { class: "lightbox", role: "dialog", "aria-modal": "true", "aria-label": alt || "Invitation" }, [closeBtn, img]);
+  function close() {
+    document.removeEventListener("keydown", onKey);
+    box.remove();
+    if (prevFocus && prevFocus.focus) prevFocus.focus();
+  }
+  function onKey(e) { if (e.key === "Escape") close(); }
+  box.addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(box);
+  closeBtn.focus();
+}
+
+/** The invitation picture for one event, or null if that event has none.
+ *  The picture is not a file on the website: it is requested from the
+ *  backend with this guest's id, and the backend only sends it if the guest
+ *  is invited to the event. So it can only ever appear on a card the guest
+ *  is already allowed to see. If it can't be loaded, the rest of the card is
+ *  unaffected. */
+function renderEventImage(ev, guestId) {
+  if (!ev || !ev.hasImage || !guestId) return null;
+  const wrap = el("div", { class: "event-invite" }, [
+    el("div", { class: "event-invite-note" }, ["Loading invitation…"])
+  ]);
+  const key = guestId + "|" + ev.id;
+  const load = _inviteLoads[key] || (_inviteLoads[key] = api("getEventImage", { id: guestId, eventId: ev.id }));
+
+  load.then((res) => {
+    if (!res || !res.ok || !res.dataUrl) throw new Error("unavailable");
+    const alt = ev.name + " invitation";
+    const mime = (res.dataUrl.match(/^data:(image\/[a-z]+);/) || [])[1] || "image/jpeg";
+    const ext = mime === "image/png" ? "png" : (mime === "image/webp" ? "webp" : "jpg");
+    const img = el("img", { src: res.dataUrl, alt: alt });
+    const open = el("button", { type: "button", class: "event-invite-img", "aria-label": "View the " + alt + " full size" }, [img]);
+    open.addEventListener("click", () => openLightbox(res.dataUrl, alt));
+    const save = el("a", {
+      class: "event-invite-save",
+      href: res.dataUrl,
+      download: (ev.name || "event").replace(/[^A-Za-z0-9]+/g, "-") + "-invitation." + ext
+    }, ["Save invitation"]);
+    wrap.innerHTML = "";
+    wrap.appendChild(open);
+    wrap.appendChild(el("div", { class: "event-invite-note" }, ["Tap the invitation to enlarge it"]));
+    wrap.appendChild(save);
+  }).catch(() => {
+    delete _inviteLoads[key];
+    wrap.innerHTML = "";
+    wrap.appendChild(el("div", { class: "event-invite-note" }, ["We couldn't load the invitation image right now."]));
+  });
+  return wrap;
+}
+
 /** An embedded map (no API key required) plus a link to open it in Google
  *  Maps directly, for one event's venue address — or null if the event
  *  has no address set. */

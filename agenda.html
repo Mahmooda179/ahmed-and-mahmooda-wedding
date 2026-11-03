@@ -133,6 +133,7 @@ function renderAgenda() {
   guest.events.forEach((ev) => {
     app.appendChild(el("div", { class: "card event-card" }, [
       el("h3", {}, [ev.name]),
+      renderEventImage(ev, guest.id),
       el("div", { class: "event-when" }, [formatEventWhen(ev)]),
       ev.location ? el("div", { class: "event-where" }, ["📍 " + ev.location]) : null,
       ev.details ? el("div", { class: "event-details" }, [ev.details]) : null,

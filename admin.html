@@ -415,6 +415,39 @@ async function deleteGuest(g) {
 
 /* ---------------- events tab ---------------- */
 
+/** Shrinks a chosen picture in the browser so it uploads quickly and fits in
+ *  the sheet: longest side at most 1400px, saved as a JPEG, stepping the
+ *  size/quality down until it is small enough. Resolves to a data URL. */
+function shrinkImage(file, maxChars) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Couldn't read that image. Please choose a JPEG or PNG.")); };
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const longest = Math.max(img.naturalWidth, img.naturalHeight) || 1;
+      const sizes = [1400, 1200, 1000, 800];
+      const qualities = [0.88, 0.8, 0.7, 0.6];
+      for (const target of sizes) {
+        const scale = Math.min(1, target / longest);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";                       // PNGs with transparency
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        for (const q of qualities) {
+          const out = canvas.toDataURL("image/jpeg", q);
+          if (out.length <= maxChars) { resolve(out); return; }
+        }
+      }
+      reject(new Error("That image is too detailed to shrink enough. Please choose a smaller one."));
+    };
+    img.src = url;
+  });
+}
+
 /** Tallies responses for one event across all invited guests.
  *  pending: guests invited who haven't responded yet
  *  yesHeadcount: total people attending (the guest plus however many
@@ -474,7 +507,8 @@ function buildEventsTab() {
     const extraInfoCell = el("td", {}, [
       el("span", { class: "tag" + (ev.dressCode ? " tag-yes" : "") }, ["Dress " + (ev.dressCode ? "✓" : "—")]),
       el("span", { class: "tag" + (ev.parkingInfo ? " tag-yes" : "") }, ["Parking " + (ev.parkingInfo ? "✓" : "—")]),
-      el("span", { class: "tag" + (ev.notes ? " tag-yes" : "") }, ["Notes " + (ev.notes ? "✓" : "—")])
+      el("span", { class: "tag" + (ev.notes ? " tag-yes" : "") }, ["Notes " + (ev.notes ? "✓" : "—")]),
+      el("span", { class: "tag" + (ev.hasImage ? " tag-yes" : "") }, ["Image " + (ev.hasImage ? "✓" : "—")])
     ]);
 
     tbody.appendChild(el("tr", {}, [
@@ -545,6 +579,66 @@ function openEventForm(ev) {
   const addTimelineBtn = el("button", { type: "button", class: "btn btn-small btn-outline" }, ["+ Add timeline item"]);
   addTimelineBtn.addEventListener("click", () => { timelineItems.push({ time: "", label: "" }); renderTimelineRows(); });
 
+  // Invitation image (optional). Chosen files are shrunk and held here until
+  // "Save changes"; nothing is uploaded before then.
+  let pendingImage = null;     // data URL waiting to be saved
+  let removeImage = false;     // the stored image will be deleted on save
+  let storedImageUrl = null;   // preview of what's already stored
+  const hadImage = !!e.hasImage;
+  const imgPreview = el("img", { alt: "Invitation image preview", style: "display:none" });
+  const imgStatus = el("div", { class: "helptext", style: "margin:0 0 0.6rem" });
+  const imgFile = el("input", { type: "file", accept: "image/jpeg,image/png,image/webp", id: "inviteFile", style: "margin-bottom:0.6rem" });
+  const imgRemove = el("button", { type: "button", class: "btn btn-small btn-outline" }, ["Remove image"]);
+
+  function paintImage() {
+    let shown = null;
+    if (pendingImage) {
+      shown = pendingImage;
+      imgStatus.textContent = "New image ready (" + Math.round(pendingImage.length * 0.75 / 1024) + " KB). It is saved when you click Save changes.";
+      imgRemove.textContent = "Discard new image";
+      imgRemove.style.display = "";
+    } else if (hadImage && removeImage) {
+      imgStatus.textContent = "The image will be removed when you click Save changes.";
+      imgRemove.style.display = "none";
+    } else if (hadImage) {
+      shown = storedImageUrl;
+      imgStatus.textContent = "An image is saved. Only guests invited to this event can see it, on their agenda and RSVP pages. Choose a file to replace it.";
+      imgRemove.textContent = "Remove image";
+      imgRemove.style.display = "";
+    } else {
+      imgStatus.textContent = "No image yet.";
+      imgRemove.style.display = "none";
+    }
+    if (shown) { imgPreview.src = shown; imgPreview.style.display = "block"; }
+    else { imgPreview.removeAttribute("src"); imgPreview.style.display = "none"; }
+  }
+  paintImage();
+  if (hadImage) {
+    api("adminGetEventImage", { passcode, eventId: e.id })
+      .then((r) => { if (r && r.ok && r.dataUrl) { storedImageUrl = r.dataUrl; paintImage(); } })
+      .catch(() => {});
+  }
+
+  imgFile.addEventListener("change", async () => {
+    const file = imgFile.files && imgFile.files[0];
+    if (!file) return;
+    imgStatus.textContent = "Preparing image…";
+    try {
+      pendingImage = await shrinkImage(file, 600000);
+      removeImage = false;
+    } catch (err) {
+      showError(errBox, err.message);
+    }
+    imgFile.value = "";
+    paintImage();
+  });
+  imgRemove.addEventListener("click", () => {
+    if (pendingImage) pendingImage = null;
+    else if (hadImage) removeImage = true;
+    errBox.innerHTML = "";
+    paintImage();
+  });
+
   const errBox = el("div", {});
   const saveBtn = el("button", { type: "button", class: "btn" }, [isEdit ? "Save changes" : "Add event"]);
   const cancelBtn = el("button", { type: "button", class: "btn btn-outline" }, ["Cancel"]);
@@ -583,7 +677,17 @@ function openEventForm(ev) {
         notes: notesInput.value.trim()
       };
       const res = await api("adminSaveEvent", { passcode, event: payloadEvent });
-      if (!res.ok) { showError(errBox, res.error || "Failed to save."); saveBtn.disabled = false; return; }
+      if (!res.ok) { showError(errBox, res.error || "Failed to save."); saveBtn.disabled = false; saveBtn.textContent = "Save changes"; return; }
+      if (pendingImage || removeImage) {
+        saveBtn.textContent = "Uploading image...";
+        const ires = await api("adminSaveEventImage", { passcode, eventId: saveId, dataUrl: pendingImage || "" });
+        if (!ires.ok) {
+          showError(errBox, "The event was saved, but the image did not upload: " + (ires.error || "unknown error") + " Click Save changes to try again.");
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Save changes";
+          return;
+        }
+      }
       await loadAll();
       renderShell();
     } catch (err) {
@@ -610,6 +714,8 @@ function openEventForm(ev) {
     timelineRows,
     el("div", { class: "btn-row", style: "margin-bottom:1rem" }, [addTimelineBtn]),
     el("label", {}, ["Important notes (optional) — shown to guests in a highlighted callout, near the top of the event"]), notesInput,
+    el("label", {}, ["Invitation image (optional) — only guests invited to this event can see it"]),
+    el("div", { class: "invite-admin" }, [imgPreview, imgStatus, imgFile, imgRemove]),
     errBox,
     el("div", { class: "btn-row" }, [saveBtn, cancelBtn])
   ]));

@@ -845,6 +845,63 @@ table.admin-table th {
 .rsvp-edit-count { align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #6b6152; }
 .rsvp-edit-row input[type="number"] { width: 76px; margin: 0; padding: 0.45rem 0.6rem; }
 
+/* ---------- invitation image on event cards, lightbox, admin upload ---------- */
+
+.event-invite { text-align: center; margin: 0.7rem 0 1.1rem; }
+.event-invite-img {
+  display: block;
+  margin: 0 auto;
+  padding: 0;
+  width: 100%;
+  max-width: 280px;
+  border: 1px solid var(--line);
+  background: none;
+  box-shadow: var(--shadow);
+  cursor: zoom-in;
+}
+.event-invite-img img { display: block; width: 100%; height: auto; }
+.event-invite-note { font-size: 0.8rem; color: #6b6152; margin-top: 0.45rem; }
+.event-invite-save { display: inline-block; margin-top: 0.2rem; font-size: 0.86rem; }
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(20, 18, 14, 0.88);
+  cursor: zoom-out;
+}
+.lightbox img {
+  max-width: 96vw;
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+.lightbox-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.9rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2.3rem;
+  line-height: 1;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+
+.invite-admin { margin-bottom: 1rem; }
+.invite-admin img {
+  display: block;
+  max-width: 140px;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--line);
+}
+
 footer.site-footer {
   text-align: center;
   padding: 2rem 1rem;

@@ -105,6 +105,18 @@ Visit `admin.html` on your live site and enter your passcode.
   bring (plus-ones), and which events they're invited to. Guests only ever
   see the events you've checked for them.
 
+### Invitation image for an event (private)
+
+In **Admin > Events**, edit an event and use **Invitation image** to upload
+a picture (for example the Walima invitation card). The browser shrinks it
+for you, and it is stored in your Google Sheet (a tab called `EventImages`),
+not as a file on the website. Only guests invited to that event ever receive
+it: it appears at the top of that event's card on their Agenda and RSVP pages,
+where they can tap it to enlarge it or save it. Guests who aren't invited to
+the event can't see it, there is no web address for it, and it isn't in your
+code or your repository. Use **Remove image** (or delete the event) to take
+it away.
+
 ### About the same-name failsafe
 
 If two guests share the exact same first and last name, the site won't let
